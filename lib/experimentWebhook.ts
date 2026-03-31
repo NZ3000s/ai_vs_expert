@@ -50,7 +50,12 @@ export type SheetResponseRow = {
   answered_at: string;
 };
 
+/** Bump when sheet column order or semantics change (Apps Script can branch on this). */
+export const SHEETS_PAYLOAD_FORMAT_VERSION = 2 as const;
+
 export type ExperimentWebhookPayload = {
+  /** Use with `response_rows` in Apps Script; ignore legacy TEST_* / debug prepend paths. */
+  payload_format_version: typeof SHEETS_PAYLOAD_FORMAT_VERSION;
   /** Same id on every row — also sent top-level for Apps Script that prepends manually. */
   participant_id: string;
   responses: SheetResponseRow[];
@@ -368,6 +373,7 @@ export function submitExperimentWebhook(records: RoundRecord[]): void {
   }
 
   const payload: ExperimentWebhookPayload = {
+    payload_format_version: SHEETS_PAYLOAD_FORMAT_VERSION,
     participant_id: participantId,
     responses: rows,
     response_rows,

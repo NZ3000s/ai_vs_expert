@@ -8,9 +8,9 @@ export const runtime = "edge";
 
 /**
  * Forwards the request body to Google Apps Script unchanged (no field injection).
- * Client sends JSON with `participant_id`, `responses` (objects), and
- * `response_rows` (12-value arrays in column order). In Apps Script prefer:
- * `data.response_rows.forEach(r => sheet.appendRow(r))` so column A is filled.
+ * Client sends JSON with `payload_format_version`, `participant_id`, `responses`,
+ * and `response_rows` (12-value arrays). Forwarded unchanged — see
+ * scripts/google-apps-script-doPost.example.gs (no TEST_* column prepends).
  */
 export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_WEBHOOK_URL?.trim();
