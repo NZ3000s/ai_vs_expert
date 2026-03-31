@@ -1,14 +1,8 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-/** Explicit base path so Tailwind scans /components, /hooks, etc. (not only /app). */
+/** PostCSS: Tailwind v3 + Autoprefixer (no @tailwindcss/oxide — Linux/VPS safe). */
 const config = {
   plugins: {
-    "@tailwindcss/postcss": {
-      base: path.resolve(__dirname),
-    },
+    tailwindcss: {},
+    autoprefixer: {},
   },
 };
 

@@ -1,11 +1,7 @@
-/* Tailwind v4: import once, then declare every directory that contains class names */
-@import "tailwindcss";
-
-@source "../app";
-@source "../components";
-@source "../hooks";
-@source "../lib";
-@source "../data";
+/* Tailwind v3: standard directives; content paths live in tailwind.config.ts */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   color-scheme: dark;
