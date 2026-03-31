@@ -59,13 +59,13 @@ web_modules/
 # Optional REPL history
 .node_repl_history
 
-# Output of 'npm pack'
+# Output of `npm pack`
 *.tgz
 
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variable files
+# dotenv environment variable files (do not commit secrets)
 .env
 .env.*
 !.env.example
@@ -75,18 +75,14 @@ web_modules/
 .parcel-cache
 
 # Next.js build output
-.next
-out
+.next/
+out/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
 .cache/
-# Comment in the public line in if your project uses Gatsby and not Next.js
-# https://nextjs.org/blog/next-9-1#public-directory-support
-# public
 
 # vuepress build output
 .vuepress/dist
@@ -137,3 +133,13 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Build / dist
+dist/
+
+# ide
+.idea
+.vscode
+
+# os
+.DS_Store

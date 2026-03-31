@@ -1,0 +1,7 @@
+Create a `.env.local` file in the project root and add this line:
+
+NEXT_PUBLIC_WEBHOOK_URL=PASTE_YOUR_WEBHOOK_URL_HERE
+
+Then make sure the app reads this variable correctly on the client side.
+
+After that, restart the Next.js dev server so the env variable is loaded.
