@@ -16,8 +16,9 @@ export const LS_WEBHOOK_PENDING = "experiment_webhook_pending";
 const SESSION_DISPATCH = "experiment_webhook_dispatch";
 
 /**
- * Google Sheets column order (index 0..11). Each row is a fixed-length tuple —
- * no object key ordering.
+ * Google Sheets column order. Each row is a plain object with exactly these keys,
+ * built in this order so JSON.stringify matches sheet headers. Apps Script can
+ * use row.participant_id, row.round_number, … or sheetRowToValues(row).
  */
 export const SHEET_ROW_KEYS = [
   "participant_id",
@@ -34,27 +35,37 @@ export const SHEET_ROW_KEYS = [
   "answered_at",
 ] as const;
 
-export const SHEET_COLUMNS = SHEET_ROW_KEYS.length;
-
-/** One sheet row: values in the exact order above. */
-export type SheetResponseRow = readonly [
-  string,
-  number,
-  number,
-  string,
-  "UP" | "DOWN",
-  "UP" | "DOWN",
-  "UP" | "DOWN",
-  "expert" | "ai",
-  "UP" | "DOWN",
-  boolean,
-  number,
-  string,
-];
+export type SheetResponseRow = {
+  participant_id: string;
+  round_number: number;
+  scenario_id: number;
+  asset: string;
+  expert_prediction: "UP" | "DOWN";
+  ai_prediction: "UP" | "DOWN";
+  outcome: "UP" | "DOWN";
+  user_choice_source: "expert" | "ai";
+  user_choice_prediction: "UP" | "DOWN";
+  matched_outcome: boolean;
+  response_time_ms: number;
+  answered_at: string;
+};
 
 export type ExperimentWebhookPayload = {
+  /** Same id on every row — also sent top-level for Apps Script that prepends manually. */
+  participant_id: string;
   responses: SheetResponseRow[];
+  /**
+   * Each row as 12 values in SHEET_ROW_KEYS order (includes column A). Prefer this in
+   * Apps Script: `data.response_rows.forEach(r => sheet.appendRow(r))` so participant_id
+   * is never omitted when mapping fields by hand.
+   */
+  response_rows: unknown[][];
 };
+
+/** Values in header order (for Apps Script sheet.appendRow(values)). */
+export function sheetRowToValues(row: SheetResponseRow): unknown[] {
+  return SHEET_ROW_KEYS.map((k) => row[k]);
+}
 
 function isConfiguredUrl(url: string): boolean {
   const u = url.trim();
@@ -84,20 +95,25 @@ function buildSheetRow(
     r.followed_source === "Expert" ? "expert" : "ai";
   const matched_outcome = user_choice_prediction === r.outcome;
 
-  return [
-    participantId,
-    sessionRoundIndex,
-    r.round_number,
-    String(r.asset),
-    r.expert_prediction,
-    r.ai_prediction,
-    r.outcome,
+  const answered_at =
+    r.answered_at && r.answered_at.trim().length > 0
+      ? r.answered_at
+      : new Date().toISOString();
+
+  return {
+    participant_id: participantId,
+    round_number: sessionRoundIndex,
+    scenario_id: r.round_number,
+    asset: String(r.asset),
+    expert_prediction: r.expert_prediction,
+    ai_prediction: r.ai_prediction,
+    outcome: r.outcome,
     user_choice_source,
     user_choice_prediction,
     matched_outcome,
-    r.response_time_ms,
-    r.answered_at ?? "",
-  ];
+    response_time_ms: r.response_time_ms,
+    answered_at,
+  };
 }
 
 export function buildSheetRows(
@@ -114,76 +130,92 @@ function validateRow(
   participantId: string,
   index: number
 ): boolean {
-  if (row.length !== SHEET_COLUMNS) {
-    console.error(`[sheets] row ${index}: expected ${SHEET_COLUMNS} columns`);
-    return false;
-  }
-
-  const pid = row[0];
-  const roundNum = row[1];
-  const ep = row[4];
-  const ap = row[5];
-  const out = row[6];
-  const ucs = row[7];
-  const ucp = row[8];
-  const matched = row[9];
-  const rt = row[10];
-  const answered = row[11];
-
-  if (typeof pid !== "string" || pid.trim() === "") {
+  if (typeof row.participant_id !== "string" || row.participant_id.trim() === "") {
     console.error(`[sheets] row ${index}: invalid participant_id`);
     return false;
   }
-  if (pid !== participantId) {
+  if (row.participant_id !== participantId) {
     console.error(`[sheets] row ${index}: participant_id mismatch`);
     return false;
   }
   if (
-    typeof roundNum !== "number" ||
-    roundNum < 1 ||
-    roundNum > TOTAL_ROUNDS
+    typeof row.round_number !== "number" ||
+    row.round_number < 1 ||
+    row.round_number > TOTAL_ROUNDS
   ) {
     console.error(`[sheets] row ${index}: round_number out of range`);
     return false;
   }
-  if (ep !== "UP" && ep !== "DOWN") {
+  if (row.expert_prediction !== "UP" && row.expert_prediction !== "DOWN") {
     console.error(`[sheets] row ${index}: expert_prediction invalid`);
     return false;
   }
-  if (ap !== "UP" && ap !== "DOWN") {
+  if (row.ai_prediction !== "UP" && row.ai_prediction !== "DOWN") {
     console.error(`[sheets] row ${index}: ai_prediction invalid`);
     return false;
   }
-  if (out !== "UP" && out !== "DOWN") {
+  if (row.outcome !== "UP" && row.outcome !== "DOWN") {
     console.error(`[sheets] row ${index}: outcome invalid`);
     return false;
   }
-  if (ucs !== "expert" && ucs !== "ai") {
+  if (row.user_choice_source !== "expert" && row.user_choice_source !== "ai") {
     console.error(`[sheets] row ${index}: user_choice_source invalid`);
     return false;
   }
-  if (ucp !== "UP" && ucp !== "DOWN") {
+  if (
+    row.user_choice_prediction !== "UP" &&
+    row.user_choice_prediction !== "DOWN"
+  ) {
     console.error(`[sheets] row ${index}: user_choice_prediction invalid`);
     return false;
   }
-  if (typeof matched !== "boolean") {
+  if (typeof row.matched_outcome !== "boolean") {
     console.error(`[sheets] row ${index}: matched_outcome invalid`);
     return false;
   }
-  if (typeof rt !== "number" || !Number.isFinite(rt) || rt < 0) {
+  if (
+    typeof row.response_time_ms !== "number" ||
+    !Number.isFinite(row.response_time_ms) ||
+    row.response_time_ms < 0
+  ) {
     console.error(`[sheets] row ${index}: response_time_ms invalid`);
     return false;
   }
-  if (!isValidIsoTimestamp(answered)) {
+  if (!isValidIsoTimestamp(row.answered_at)) {
     console.error(`[sheets] row ${index}: answered_at must be ISO 8601`);
     return false;
   }
   return true;
 }
 
+function validateResponseRows(
+  participantId: string,
+  rows: SheetResponseRow[],
+  responseRows: unknown[][]
+): boolean {
+  if (responseRows.length !== rows.length) {
+    console.error("[sheets] response_rows length mismatch");
+    return false;
+  }
+  for (let i = 0; i < rows.length; i++) {
+    const expected = sheetRowToValues(rows[i]);
+    const actual = responseRows[i];
+    if (!Array.isArray(actual) || actual.length !== expected.length) {
+      console.error(`[sheets] response_rows[${i}] invalid shape`);
+      return false;
+    }
+    if (String(actual[0]) !== participantId) {
+      console.error(`[sheets] response_rows[${i}] participant_id mismatch`);
+      return false;
+    }
+  }
+  return true;
+}
+
 function validateSubmission(
   participantId: string,
-  rows: SheetResponseRow[]
+  rows: SheetResponseRow[],
+  responseRows: unknown[][]
 ): boolean {
   if (typeof participantId !== "string" || participantId.trim() === "") {
     console.error("[sheets] submit aborted: participant_id empty");
@@ -196,13 +228,12 @@ function validateSubmission(
     return false;
   }
   for (let i = 0; i < rows.length; i++) {
-    if (rows[i].length !== SHEET_COLUMNS) {
-      console.error(`[sheets] row ${i}: wrong column count`);
-      return false;
-    }
     if (!validateRow(rows[i], participantId, i)) {
       return false;
     }
+  }
+  if (!validateResponseRows(participantId, rows, responseRows)) {
+    return false;
   }
   return true;
 }
@@ -342,13 +373,18 @@ export function submitExperimentWebhook(records: RoundRecord[]): void {
 
   const participantId = getParticipantId();
   const rows = buildSheetRows(participantId, records);
+  const response_rows = rows.map((r) => sheetRowToValues(r));
 
-  if (!validateSubmission(participantId, rows)) {
+  if (!validateSubmission(participantId, rows, response_rows)) {
     clearDispatchGuard();
     return;
   }
 
-  const payload: ExperimentWebhookPayload = { responses: rows };
+  const payload: ExperimentWebhookPayload = {
+    participant_id: participantId,
+    responses: rows,
+    response_rows,
+  };
 
   postJsonToWebhook(WEBHOOK_URL, payload, {
     markCompletedOnSuccess: true,

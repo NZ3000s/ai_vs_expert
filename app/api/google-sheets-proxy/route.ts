@@ -8,8 +8,9 @@ export const runtime = "edge";
 
 /**
  * Forwards the request body to Google Apps Script unchanged (no field injection).
- * Client sends `{ responses: SheetResponseRow[] }` — each row is a 12-element
- * array in SHEET_ROW_KEYS order (lib/experimentWebhook.ts).
+ * Client sends JSON with `participant_id`, `responses` (objects), and
+ * `response_rows` (12-value arrays in column order). In Apps Script prefer:
+ * `data.response_rows.forEach(r => sheet.appendRow(r))` so column A is filled.
  */
 export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_WEBHOOK_URL?.trim();
