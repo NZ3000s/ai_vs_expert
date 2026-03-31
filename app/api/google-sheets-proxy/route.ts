@@ -8,8 +8,8 @@ export const runtime = "edge";
 
 /**
  * Forwards the request body to Google Apps Script unchanged (no field injection).
- * Client sends `{ responses: [...] }` with rows matching SHEET_ROW_KEYS in
- * lib/experimentWebhook.ts.
+ * Client sends `{ responses: SheetResponseRow[] }` — each row is a 12-element
+ * array in SHEET_ROW_KEYS order (lib/experimentWebhook.ts).
  */
 export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_WEBHOOK_URL?.trim();

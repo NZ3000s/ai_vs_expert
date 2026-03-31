@@ -1,8 +1,9 @@
+import { TOTAL_ROUNDS } from "@/data/experiments";
+import { getParticipantId } from "@/lib/participantId";
 import type { RoundRecord } from "@/lib/types";
 
 /**
  * Client-safe: `NEXT_PUBLIC_*` is inlined by Next.js at build/dev compile time.
- * Set in `.env.local` and restart `next dev` so the browser bundle picks it up.
  */
 export const WEBHOOK_URL =
   (typeof process !== "undefined" &&
@@ -15,10 +16,8 @@ export const LS_WEBHOOK_PENDING = "experiment_webhook_pending";
 const SESSION_DISPATCH = "experiment_webhook_dispatch";
 
 /**
- * One Google Sheets row per response. Keys are listed in column order; build
- * rows only with `buildResponseRow` so `JSON.stringify` matches the header row.
- *
- * Apps Script (example): `const row = SHEET_ROW_KEYS.map((k) => obj[k]);`
+ * Google Sheets column order (index 0..11). Each row is a fixed-length tuple —
+ * no object key ordering.
  */
 export const SHEET_ROW_KEYS = [
   "participant_id",
@@ -35,16 +34,26 @@ export const SHEET_ROW_KEYS = [
   "answered_at",
 ] as const;
 
-export type ExperimentResponseRow = {
-  [K in (typeof SHEET_ROW_KEYS)[number]]: K extends "matched_outcome"
-    ? boolean
-    : K extends "response_time_ms"
-      ? number
-      : string | number;
-};
+export const SHEET_COLUMNS = SHEET_ROW_KEYS.length;
+
+/** One sheet row: values in the exact order above. */
+export type SheetResponseRow = readonly [
+  string,
+  number,
+  number,
+  string,
+  "UP" | "DOWN",
+  "UP" | "DOWN",
+  "UP" | "DOWN",
+  "expert" | "ai",
+  "UP" | "DOWN",
+  boolean,
+  number,
+  string,
+];
 
 export type ExperimentWebhookPayload = {
-  responses: ExperimentResponseRow[];
+  responses: SheetResponseRow[];
 };
 
 function isConfiguredUrl(url: string): boolean {
@@ -59,50 +68,143 @@ function isConfiguredUrl(url: string): boolean {
   }
 }
 
-/**
- * Maps a stored round to one sheet row. `RoundRecord.round_number` is the
- * experiment scenario id; `sessionRoundIndex` is 1-based order in this session.
- */
-function buildResponseRow(
+function isValidIsoTimestamp(s: string): boolean {
+  if (!s || typeof s !== "string") return false;
+  return Number.isFinite(Date.parse(s.trim()));
+}
+
+function buildSheetRow(
   participantId: string,
   r: RoundRecord,
   sessionRoundIndex: number
-): ExperimentResponseRow {
+): SheetResponseRow {
   const user_choice_prediction =
     r.followed_source === "Expert" ? r.expert_prediction : r.ai_prediction;
-  const user_choice_source =
+  const user_choice_source: "expert" | "ai" =
     r.followed_source === "Expert" ? "expert" : "ai";
+  const matched_outcome = user_choice_prediction === r.outcome;
 
-  return {
-    participant_id: participantId || "unknown",
-    round_number: sessionRoundIndex,
-    scenario_id: r.round_number,
-    asset: r.asset,
-    expert_prediction: r.expert_prediction,
-    ai_prediction: r.ai_prediction,
-    outcome: r.outcome,
+  return [
+    participantId,
+    sessionRoundIndex,
+    r.round_number,
+    String(r.asset),
+    r.expert_prediction,
+    r.ai_prediction,
+    r.outcome,
     user_choice_source,
     user_choice_prediction,
-    matched_outcome: user_choice_prediction === r.outcome,
-    response_time_ms: r.response_time_ms,
-    answered_at: r.answered_at ?? "",
-  };
+    matched_outcome,
+    r.response_time_ms,
+    r.answered_at ?? "",
+  ];
 }
 
-export function buildWebhookResponses(
+export function buildSheetRows(
   participantId: string,
   records: RoundRecord[]
-): ExperimentResponseRow[] {
+): SheetResponseRow[] {
   return records.map((r, i) =>
-    buildResponseRow(participantId, r, i + 1)
+    buildSheetRow(participantId, r, i + 1)
   );
 }
 
-/** Values in exact sheet column order (for Apps Script or tests). */
-export function responseRowToSheetArray(
-  row: ExperimentResponseRow
-): (string | number | boolean)[] {
-  return SHEET_ROW_KEYS.map((k) => row[k]);
+function validateRow(
+  row: SheetResponseRow,
+  participantId: string,
+  index: number
+): boolean {
+  if (row.length !== SHEET_COLUMNS) {
+    console.error(`[sheets] row ${index}: expected ${SHEET_COLUMNS} columns`);
+    return false;
+  }
+
+  const pid = row[0];
+  const roundNum = row[1];
+  const ep = row[4];
+  const ap = row[5];
+  const out = row[6];
+  const ucs = row[7];
+  const ucp = row[8];
+  const matched = row[9];
+  const rt = row[10];
+  const answered = row[11];
+
+  if (typeof pid !== "string" || pid.trim() === "") {
+    console.error(`[sheets] row ${index}: invalid participant_id`);
+    return false;
+  }
+  if (pid !== participantId) {
+    console.error(`[sheets] row ${index}: participant_id mismatch`);
+    return false;
+  }
+  if (
+    typeof roundNum !== "number" ||
+    roundNum < 1 ||
+    roundNum > TOTAL_ROUNDS
+  ) {
+    console.error(`[sheets] row ${index}: round_number out of range`);
+    return false;
+  }
+  if (ep !== "UP" && ep !== "DOWN") {
+    console.error(`[sheets] row ${index}: expert_prediction invalid`);
+    return false;
+  }
+  if (ap !== "UP" && ap !== "DOWN") {
+    console.error(`[sheets] row ${index}: ai_prediction invalid`);
+    return false;
+  }
+  if (out !== "UP" && out !== "DOWN") {
+    console.error(`[sheets] row ${index}: outcome invalid`);
+    return false;
+  }
+  if (ucs !== "expert" && ucs !== "ai") {
+    console.error(`[sheets] row ${index}: user_choice_source invalid`);
+    return false;
+  }
+  if (ucp !== "UP" && ucp !== "DOWN") {
+    console.error(`[sheets] row ${index}: user_choice_prediction invalid`);
+    return false;
+  }
+  if (typeof matched !== "boolean") {
+    console.error(`[sheets] row ${index}: matched_outcome invalid`);
+    return false;
+  }
+  if (typeof rt !== "number" || !Number.isFinite(rt) || rt < 0) {
+    console.error(`[sheets] row ${index}: response_time_ms invalid`);
+    return false;
+  }
+  if (!isValidIsoTimestamp(answered)) {
+    console.error(`[sheets] row ${index}: answered_at must be ISO 8601`);
+    return false;
+  }
+  return true;
+}
+
+function validateSubmission(
+  participantId: string,
+  rows: SheetResponseRow[]
+): boolean {
+  if (typeof participantId !== "string" || participantId.trim() === "") {
+    console.error("[sheets] submit aborted: participant_id empty");
+    return false;
+  }
+  if (rows.length !== TOTAL_ROUNDS) {
+    console.error(
+      `[sheets] submit aborted: expected ${TOTAL_ROUNDS} rows, got ${rows.length}`
+    );
+    return false;
+  }
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].length !== SHEET_COLUMNS) {
+      console.error(`[sheets] row ${i}: wrong column count`);
+      return false;
+    }
+    if (!validateRow(rows[i], participantId, i)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function savePendingPayload(payload: ExperimentWebhookPayload): void {
@@ -159,7 +261,6 @@ type PostOptions = {
   markCompletedOnSuccess?: boolean;
 };
 
-/** POST JSON to the webhook via same-origin proxy (body forwarded as-is). */
 export function postJsonToWebhook(
   url: string,
   payload: ExperimentWebhookPayload,
@@ -230,17 +331,24 @@ export function postJsonToWebhook(
     });
 }
 
-export function submitExperimentWebhook(
-  participantId: string,
-  records: RoundRecord[]
-): void {
+/**
+ * Sends all rounds in one request. Reads participant_id from localStorage at
+ * submit time (avoids empty id when React state lags).
+ */
+export function submitExperimentWebhook(records: RoundRecord[]): void {
   if (!records?.length) {
     return;
   }
 
-  const payload: ExperimentWebhookPayload = {
-    responses: buildWebhookResponses(participantId, records),
-  };
+  const participantId = getParticipantId();
+  const rows = buildSheetRows(participantId, records);
+
+  if (!validateSubmission(participantId, rows)) {
+    clearDispatchGuard();
+    return;
+  }
+
+  const payload: ExperimentWebhookPayload = { responses: rows };
 
   postJsonToWebhook(WEBHOOK_URL, payload, {
     markCompletedOnSuccess: true,

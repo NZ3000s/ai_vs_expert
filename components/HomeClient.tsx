@@ -18,8 +18,8 @@ import {
   type PersistedProgress,
 } from "@/lib/experimentStorage";
 import { fisherYatesShuffle } from "@/lib/shuffle";
-import { useParticipantId } from "@/hooks/useParticipantId";
 import { submitExperimentWebhook } from "@/lib/experimentWebhook";
+import { getParticipantId } from "@/lib/participantId";
 import type { RoundRecord } from "@/lib/types";
 
 type Step = "landing" | "experiment" | "final";
@@ -56,7 +56,6 @@ function isValidResume(p: PersistedProgress): boolean {
 }
 
 export default function HomeClient() {
-  const participantId = useParticipantId();
   const [hydrated, setHydrated] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [scenarioOrder, setScenarioOrder] = useState<number[] | null>(null);
@@ -107,6 +106,12 @@ export default function HomeClient() {
     setHydrated(true);
   }, []);
 
+  /** Prime participant_id in localStorage as soon as the app is interactive. */
+  useEffect(() => {
+    if (!hydrated || blocked) return;
+    getParticipantId();
+  }, [hydrated, blocked]);
+
   useEffect(() => {
     if (flow.step !== "final" || flow.records.length !== TOTAL_ROUNDS) return;
     setSessionEndMs((prev) => (prev == null ? Date.now() : prev));
@@ -129,11 +134,10 @@ export default function HomeClient() {
 
   useEffect(() => {
     if (!hydrated || blocked) return;
-    if (!participantId) return;
     if (flow.step !== "final" || flow.records.length !== TOTAL_ROUNDS) return;
-    submitExperimentWebhook(participantId, flow.records);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- length+step only; submit dedupes; avoid records[] identity churn
-  }, [hydrated, blocked, participantId, flow.step, flow.records.length]);
+    submitExperimentWebhook(flow.records);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- submit dedupes; avoid records[] identity churn
+  }, [hydrated, blocked, flow.step, flow.records.length]);
 
   const start = useCallback(() => {
     if (blocked || readCompleted()) return;
@@ -171,7 +175,7 @@ export default function HomeClient() {
           return { ...s, step: "final" };
         }
         const record: RoundRecord = {
-          participant_id: participantId ?? "unknown",
+          participant_id: getParticipantId(),
           round_number: scenario.id,
           asset: scenario.asset,
           expert_prediction: payload.expert_prediction,
@@ -192,7 +196,7 @@ export default function HomeClient() {
         return { ...s, records, currentRound: s.currentRound + 1 };
       });
     },
-    [participantId, scenarioOrder]
+    [scenarioOrder]
   );
 
   useEffect(() => {
