@@ -7,8 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "edge";
 
 /**
- * Forwards JSON POST to Google Apps Script from the server so the browser
- * never cross-origin POSTs to script.google.com (avoids CORS / opaque failures).
+ * Forwards the request body to Google Apps Script unchanged (no field injection).
+ * Client sends `{ responses: [...] }` with rows matching SHEET_ROW_KEYS in
+ * lib/experimentWebhook.ts.
  */
 export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_WEBHOOK_URL?.trim();

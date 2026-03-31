@@ -3,7 +3,6 @@ import type { RoundRecord } from "@/lib/types";
 /**
  * Client-safe: `NEXT_PUBLIC_*` is inlined by Next.js at build/dev compile time.
  * Set in `.env.local` and restart `next dev` so the browser bundle picks it up.
- * Not hardcoded — reads `process.env.NEXT_PUBLIC_WEBHOOK_URL` at compile time.
  */
 export const WEBHOOK_URL =
   (typeof process !== "undefined" &&
@@ -15,22 +14,36 @@ export const LS_WEBHOOK_PENDING = "experiment_webhook_pending";
 
 const SESSION_DISPATCH = "experiment_webhook_dispatch";
 
+/**
+ * One Google Sheets row per response. Keys are listed in column order; build
+ * rows only with `buildResponseRow` so `JSON.stringify` matches the header row.
+ *
+ * Apps Script (example): `const row = SHEET_ROW_KEYS.map((k) => obj[k]);`
+ */
+export const SHEET_ROW_KEYS = [
+  "participant_id",
+  "round_number",
+  "scenario_id",
+  "asset",
+  "expert_prediction",
+  "ai_prediction",
+  "outcome",
+  "user_choice_source",
+  "user_choice_prediction",
+  "matched_outcome",
+  "response_time_ms",
+  "answered_at",
+] as const;
+
 export type ExperimentResponseRow = {
-  round_number: number;
-  scenario_id: number;
-  asset: string;
-  expert_prediction: "UP" | "DOWN";
-  ai_prediction: "UP" | "DOWN";
-  outcome: "UP" | "DOWN";
-  user_choice_source: "expert" | "ai";
-  user_choice_prediction: "UP" | "DOWN";
-  matched_outcome: boolean;
-  response_time_ms: number;
-  answered_at: string;
+  [K in (typeof SHEET_ROW_KEYS)[number]]: K extends "matched_outcome"
+    ? boolean
+    : K extends "response_time_ms"
+      ? number
+      : string | number;
 };
 
 export type ExperimentWebhookPayload = {
-  participant_id: string;
   responses: ExperimentResponseRow[];
 };
 
@@ -46,28 +59,50 @@ function isConfiguredUrl(url: string): boolean {
   }
 }
 
+/**
+ * Maps a stored round to one sheet row. `RoundRecord.round_number` is the
+ * experiment scenario id; `sessionRoundIndex` is 1-based order in this session.
+ */
+function buildResponseRow(
+  participantId: string,
+  r: RoundRecord,
+  sessionRoundIndex: number
+): ExperimentResponseRow {
+  const user_choice_prediction =
+    r.followed_source === "Expert" ? r.expert_prediction : r.ai_prediction;
+  const user_choice_source =
+    r.followed_source === "Expert" ? "expert" : "ai";
+
+  return {
+    participant_id: participantId || "unknown",
+    round_number: sessionRoundIndex,
+    scenario_id: r.round_number,
+    asset: r.asset,
+    expert_prediction: r.expert_prediction,
+    ai_prediction: r.ai_prediction,
+    outcome: r.outcome,
+    user_choice_source,
+    user_choice_prediction,
+    matched_outcome: user_choice_prediction === r.outcome,
+    response_time_ms: r.response_time_ms,
+    answered_at: r.answered_at ?? "",
+  };
+}
+
 export function buildWebhookResponses(
+  participantId: string,
   records: RoundRecord[]
 ): ExperimentResponseRow[] {
-  return records.map((r) => {
-    const user_choice_prediction =
-      r.followed_source === "Expert"
-        ? r.expert_prediction
-        : r.ai_prediction;
-    return {
-      round_number: r.round_number,
-      scenario_id: r.round_number,
-      asset: r.asset,
-      expert_prediction: r.expert_prediction,
-      ai_prediction: r.ai_prediction,
-      outcome: r.outcome,
-      user_choice_source: r.followed_source === "Expert" ? "expert" : "ai",
-      user_choice_prediction,
-      matched_outcome: user_choice_prediction === r.outcome,
-      response_time_ms: r.response_time_ms,
-      answered_at: r.answered_at ?? "",
-    };
-  });
+  return records.map((r, i) =>
+    buildResponseRow(participantId, r, i + 1)
+  );
+}
+
+/** Values in exact sheet column order (for Apps Script or tests). */
+export function responseRowToSheetArray(
+  row: ExperimentResponseRow
+): (string | number | boolean)[] {
+  return SHEET_ROW_KEYS.map((k) => row[k]);
 }
 
 function savePendingPayload(payload: ExperimentWebhookPayload): void {
@@ -95,7 +130,7 @@ function clearDispatchGuard(): void {
   }
 }
 
-/** Same-origin POST; server forwards to Google (avoids browser CORS to script.google.com). */
+/** Same-origin POST; server forwards JSON body unchanged to Google Apps Script. */
 export const GOOGLE_SHEETS_PROXY_PATH = "/api/google-sheets-proxy" as const;
 
 type GoogleProxyJson =
@@ -124,7 +159,7 @@ type PostOptions = {
   markCompletedOnSuccess?: boolean;
 };
 
-/** POST JSON to the webhook via same-origin proxy. */
+/** POST JSON to the webhook via same-origin proxy (body forwarded as-is). */
 export function postJsonToWebhook(
   url: string,
   payload: ExperimentWebhookPayload,
@@ -204,8 +239,7 @@ export function submitExperimentWebhook(
   }
 
   const payload: ExperimentWebhookPayload = {
-    participant_id: participantId || "unknown",
-    responses: buildWebhookResponses(records),
+    responses: buildWebhookResponses(participantId, records),
   };
 
   postJsonToWebhook(WEBHOOK_URL, payload, {
