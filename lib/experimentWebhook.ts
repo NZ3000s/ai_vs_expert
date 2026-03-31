@@ -67,18 +67,6 @@ export function sheetRowToValues(row: SheetResponseRow): unknown[] {
   return SHEET_ROW_KEYS.map((k) => row[k]);
 }
 
-function isConfiguredUrl(url: string): boolean {
-  const u = url.trim();
-  if (!u || u === "PASTE_YOUR_WEBHOOK_URL_HERE") return false;
-  if (u.startsWith("PASTE_")) return false;
-  try {
-    const parsed = new URL(u);
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
-
 function isValidIsoTimestamp(s: string): boolean {
   if (!s || typeof s !== "string") return false;
   return Number.isFinite(Date.parse(s.trim()));
@@ -293,7 +281,6 @@ type PostOptions = {
 };
 
 export function postJsonToWebhook(
-  url: string,
   payload: ExperimentWebhookPayload,
   options: PostOptions
 ): void {
@@ -307,12 +294,12 @@ export function postJsonToWebhook(
     return;
   }
 
-  const trimmed = url.trim();
-
-  if (!isConfiguredUrl(trimmed)) {
-    return;
-  }
-
+  /**
+   * Do not gate on isConfiguredUrl() here. NEXT_PUBLIC_WEBHOOK_URL is inlined at
+   * build time; production servers often set the real URL only at runtime, which
+   * would leave the client bundle with a placeholder and skip all POSTs silently.
+   * The proxy route validates env and returns 500 if the webhook is not set.
+   */
   if (!skipGuards) {
     try {
       if (localStorage.getItem(LS_WEBHOOK_SENT) === "true") {
@@ -386,7 +373,7 @@ export function submitExperimentWebhook(records: RoundRecord[]): void {
     response_rows,
   };
 
-  postJsonToWebhook(WEBHOOK_URL, payload, {
+  postJsonToWebhook(payload, {
     markCompletedOnSuccess: true,
   });
 }

@@ -68,42 +68,44 @@ export default function HomeClient() {
   });
 
   useEffect(() => {
-    if (readCompleted()) {
-      setBlocked(true);
-      setHydrated(true);
-      return;
-    }
-
-    const p = readProgress();
-    if (p?.records.length === TOTAL_ROUNDS) {
-      setFlow({
-        step: "final",
-        currentRound: 0,
-        records: p.records,
-      });
-      setHydrated(true);
-      return;
-    }
-
-    if (p && isValidResume(p)) {
-      setScenarioOrder(resolveScenarioOrder(p));
-      setFlow({
-        step: "experiment",
-        currentRound: p.currentRoundIndex,
-        records: p.records,
-      });
-      try {
-        const raw = sessionStorage.getItem(SESSION_TIMER_START_KEY);
-        if (raw) {
-          const n = parseInt(raw, 10);
-          if (Number.isFinite(n)) setSessionStartMs(n);
-        }
-      } catch {
-        /* ignore */
+    try {
+      if (readCompleted()) {
+        setBlocked(true);
+        return;
       }
-    }
 
-    setHydrated(true);
+      const p = readProgress();
+      if (p?.records.length === TOTAL_ROUNDS) {
+        setFlow({
+          step: "final",
+          currentRound: 0,
+          records: p.records,
+        });
+        return;
+      }
+
+      if (p && isValidResume(p)) {
+        setScenarioOrder(resolveScenarioOrder(p));
+        setFlow({
+          step: "experiment",
+          currentRound: p.currentRoundIndex,
+          records: p.records,
+        });
+        try {
+          const raw = sessionStorage.getItem(SESSION_TIMER_START_KEY);
+          if (raw) {
+            const n = parseInt(raw, 10);
+            if (Number.isFinite(n)) setSessionStartMs(n);
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch (e) {
+      console.error("[experiment] hydrate storage failed", e);
+    } finally {
+      setHydrated(true);
+    }
   }, []);
 
   /** Prime participant_id in localStorage as soon as the app is interactive. */
