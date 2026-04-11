@@ -11,6 +11,7 @@ export type PersistedControlProgress = {
   sessionStartMs: number;
 };
 
+/** One completed submission per browser (`control_experiment_completed` after successful webhook). */
 export function readControlCompleted(): boolean {
   if (typeof window === "undefined") return false;
   try {

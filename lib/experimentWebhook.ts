@@ -17,9 +17,8 @@ export const LS_WEBHOOK_PENDING = "experiment_webhook_pending";
 const LEGACY_SESSION_DISPATCH = "experiment_webhook_dispatch";
 
 /**
- * Clears client guards so a new full run can POST again (e.g. after
- * `NEXT_PUBLIC_EXPERIMENT_ALLOW_REPEAT` or a fresh session). Call when starting
- * rounds, not on page refresh mid-experiment.
+ * Clears webhook send guards when the participant starts a new session from the
+ * intro flow. Call when starting rounds, not on page refresh mid-experiment.
  */
 export function resetWebhookSendStateForNewSession(): void {
   if (typeof window === "undefined") return;
