@@ -1,6 +1,6 @@
 Create a `.env.local` file in the project root and add this line:
 
-NEXT_PUBLIC_WEBHOOK_URL=PASTE_YOUR_WEBHOOK_URL_HERE
+NEXT_PUBLIC_WEBHOOK_URL=https://script.google.com/macros/s/YOUR_DEPLOYMENT/exec
 
 Then make sure the app reads this variable correctly on the client side.
 
