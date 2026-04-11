@@ -1,6 +1,12 @@
 import { EXPERIMENT_ROUNDS, TOTAL_ROUNDS } from "@/data/experiments";
 import type { Prediction, RoundRecord } from "@/lib/types";
 
+export type InterpretationKind =
+  | "empty"
+  | "expertHeavy"
+  | "aiHeavy"
+  | "balanced";
+
 export type ResultsSummary = {
   user: {
     score: number;
@@ -17,7 +23,8 @@ export type ResultsSummary = {
     expertAccuracyPct: number;
     aiAccuracyPct: number;
   };
-  interpretation: string;
+  /** For localized copy via i18n (`main.results.interpretation.*`). */
+  interpretationKind: InterpretationKind;
 };
 
 function userPredictionForRound(r: RoundRecord): Prediction {
@@ -56,10 +63,8 @@ export function computeResultsSummary(records: RoundRecord[]): ResultsSummary {
   const expertAccuracyPct = (expertWins / TOTAL_ROUNDS) * 100;
   const aiAccuracyPct = (aiWins / TOTAL_ROUNDS) * 100;
 
-  const interpretation =
-    totalRounds === 0
-      ? "Your decisions were balanced between both sources."
-      : interpretTrust(pctExpert);
+  const interpretationKind: InterpretationKind =
+    totalRounds === 0 ? "empty" : interpretTrustKind(pctExpert);
 
   return {
     user: {
@@ -77,16 +82,12 @@ export function computeResultsSummary(records: RoundRecord[]): ResultsSummary {
       expertAccuracyPct,
       aiAccuracyPct,
     },
-    interpretation,
+    interpretationKind,
   };
 }
 
-function interpretTrust(pctExpert: number): string {
-  if (pctExpert >= 55) {
-    return "You relied more on the expert commentary.";
-  }
-  if (pctExpert <= 45) {
-    return "You relied more on the AI model.";
-  }
-  return "Your choices were balanced between expert and AI.";
+function interpretTrustKind(pctExpert: number): InterpretationKind {
+  if (pctExpert >= 55) return "expertHeavy";
+  if (pctExpert <= 45) return "aiHeavy";
+  return "balanced";
 }

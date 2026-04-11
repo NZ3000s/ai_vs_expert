@@ -21,6 +21,21 @@ function randomUuid(): string {
 }
 
 /**
+ * New UUID for each experiment run (after "Begin rounds"). Keeps Sheets rows
+ * distinct per completion and avoids cross-session id confusion.
+ */
+export function assignNewParticipantId(): string {
+  const id = randomUuid();
+  if (typeof window === "undefined") return id;
+  try {
+    localStorage.setItem(PARTICIPANT_ID_STORAGE_KEY, id);
+  } catch {
+    /* private mode */
+  }
+  return id;
+}
+
+/**
  * Returns the same id for the whole session. Persists under `participant_id`;
  * migrates legacy `be_experiment_participant_id` if present.
  */

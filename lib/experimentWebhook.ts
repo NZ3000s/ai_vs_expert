@@ -13,7 +13,28 @@ export const WEBHOOK_URL =
 export const LS_WEBHOOK_SENT = "experiment_webhook_sent";
 export const LS_WEBHOOK_PENDING = "experiment_webhook_pending";
 
-const SESSION_DISPATCH = "experiment_webhook_dispatch";
+/** @deprecated Removed; kept only so reset clears any stale tab state. */
+const LEGACY_SESSION_DISPATCH = "experiment_webhook_dispatch";
+
+/**
+ * Clears client guards so a new full run can POST again (e.g. after
+ * `NEXT_PUBLIC_EXPERIMENT_ALLOW_REPEAT` or a fresh session). Call when starting
+ * rounds, not on page refresh mid-experiment.
+ */
+export function resetWebhookSendStateForNewSession(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(LS_WEBHOOK_SENT);
+    localStorage.removeItem(LS_WEBHOOK_PENDING);
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(LEGACY_SESSION_DISPATCH);
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Google Sheets column order. Each row is a plain object with exactly these keys,
@@ -248,9 +269,9 @@ function markSent(): void {
   }
 }
 
-function clearDispatchGuard(): void {
+function clearLegacyDispatchKey(): void {
   try {
-    sessionStorage.removeItem(SESSION_DISPATCH);
+    sessionStorage.removeItem(LEGACY_SESSION_DISPATCH);
   } catch {
     /* ignore */
   }
@@ -310,10 +331,6 @@ export function postJsonToWebhook(
       if (localStorage.getItem(LS_WEBHOOK_SENT) === "true") {
         return;
       }
-      if (sessionStorage.getItem(SESSION_DISPATCH) === "1") {
-        return;
-      }
-      sessionStorage.setItem(SESSION_DISPATCH, "1");
     } catch {
       /* ignore */
     }
@@ -329,18 +346,18 @@ export function postJsonToWebhook(
     .then(async (res) => {
       const data = await readGoogleProxyJson(res);
       if (!data) {
-        clearDispatchGuard();
+        clearLegacyDispatchKey();
         savePendingPayload(payload);
         return;
       }
       if (data.ok !== true) {
-        clearDispatchGuard();
+        clearLegacyDispatchKey();
         savePendingPayload(payload);
         return;
       }
       const status = data.forwardedStatus;
       if (status < 200 || status >= 300) {
-        clearDispatchGuard();
+        clearLegacyDispatchKey();
         savePendingPayload(payload);
         return;
       }
@@ -349,7 +366,7 @@ export function postJsonToWebhook(
       }
     })
     .catch(() => {
-      clearDispatchGuard();
+      clearLegacyDispatchKey();
       savePendingPayload(payload);
     });
 }
@@ -368,7 +385,10 @@ export function submitExperimentWebhook(records: RoundRecord[]): void {
   const response_rows = rows.map((r) => sheetRowToValues(r));
 
   if (!validateSubmission(participantId, rows, response_rows)) {
-    clearDispatchGuard();
+    clearLegacyDispatchKey();
+    console.error(
+      "[sheets] submitExperimentWebhook: validation failed (see errors above)"
+    );
     return;
   }
 

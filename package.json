@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "setup": "npm install --no-fund --no-audit",
     "clean": "rm -rf .next",
     "dev": "next dev --turbo",
     "dev:clean": "npm run clean && next dev --turbo",

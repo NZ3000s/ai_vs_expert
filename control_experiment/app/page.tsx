@@ -1,5 +1,5 @@
-import { ControlHome } from "@/components/ControlHome";
+import { ControlShell } from "@/components/ControlShell";
 
 export default function Page() {
-  return <ControlHome />;
+  return <ControlShell />;
 }

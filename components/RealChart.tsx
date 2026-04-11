@@ -1,9 +1,14 @@
 "use client";
 
+import {
+  CandlestickSeries,
+  ColorType,
+  createChart,
+} from "lightweight-charts";
 import type { CandlestickData, IChartApi, Time } from "lightweight-charts";
 import { useEffect, useRef } from "react";
 
-const CHART_HEIGHT = 460;
+const CHART_HEIGHT_MOBILE_MIN = 160;
 
 function sanitizeData(raw: CandlestickData[]): CandlestickData[] {
   const rows = raw
@@ -53,92 +58,85 @@ export function RealChart({ data }: { data: CandlestickData[] }) {
       const clean = sanitizeData(data);
       if (clean.length === 0) return;
 
-      const measured = el.clientWidth || el.getBoundingClientRect().width;
-      const width = Math.max(measured, 280);
-      if (measured < 10 && layoutAttempts++ < maxLayoutAttempts) {
+      const measuredW = el.clientWidth || el.getBoundingClientRect().width;
+      const width = Math.max(measuredW, 280);
+      const measuredH = el.clientHeight || el.getBoundingClientRect().height;
+      const height = Math.max(
+        measuredH > 8 ? measuredH : CHART_HEIGHT_MOBILE_MIN,
+        CHART_HEIGHT_MOBILE_MIN
+      );
+
+      if (measuredW < 10 && layoutAttempts++ < maxLayoutAttempts) {
         raf = requestAnimationFrame(() => {
           if (!disposed) run();
         });
         return;
       }
 
-      import("lightweight-charts")
-        .then((LWC) => {
-          if (disposed || !containerRef.current) return;
+      try {
+        if (disposed || !containerRef.current) return;
 
-          const createChart = LWC.createChart;
-          const ColorType = LWC.ColorType;
-          const CandlestickSeries =
-            LWC.CandlestickSeries ??
-            (LWC as { candlestickSeries?: typeof LWC.CandlestickSeries })
-              .candlestickSeries;
-
-          if (typeof createChart !== "function" || !CandlestickSeries) {
-            console.error("[RealChart] lightweight-charts exports:", Object.keys(LWC));
-            return;
-          }
-
-          chart = createChart(el, {
-            layout: {
-              background: { type: ColorType.Solid, color: "#0b0e11" },
-              textColor: "#94a3b8",
-              fontSize: 11,
-              fontFamily:
-                "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
-            },
-            localization: {
-              locale: "en-US",
-              dateFormat: "dd MMM 'yy",
-            },
-            grid: {
-              vertLines: { color: "#1e293b" },
-              horzLines: { color: "#1e293b" },
-            },
-            crosshair: {
-              vertLine: { color: "#475569", width: 1 },
-              horzLine: { color: "#475569", width: 1 },
-            },
-            rightPriceScale: {
-              borderColor: "#334155",
-              scaleMargins: { top: 0.08, bottom: 0.08 },
-            },
-            timeScale: {
-              borderColor: "#334155",
-              timeVisible: true,
-              secondsVisible: false,
-              barSpacing: 5,
-              minBarSpacing: 2,
-              rightOffset: 10,
-              tickMarkFormatter: (time: Time) => formatTickTime(time),
-            },
-            autoSize: false,
-            width,
-            height: CHART_HEIGHT,
-          });
-
-          const series = chart.addSeries(CandlestickSeries, {
-            upColor: "#22c55e",
-            downColor: "#ef4444",
-            borderVisible: false,
-            wickUpColor: "#16a34a",
-            wickDownColor: "#dc2626",
-          });
-          series.setData(clean);
-          chart.timeScale().fitContent();
-
-          ro = new ResizeObserver(() => {
-            if (!containerRef.current || !chart) return;
-            const w = Math.max(
-              containerRef.current.clientWidth,
-              280
-            );
-            chart.applyOptions({ width: w });
-          });
-          ro.observe(el);
-        })
-        .catch((err) => {
-          console.error("[RealChart] chart init failed", err);
+        chart = createChart(el, {
+          layout: {
+            background: { type: ColorType.Solid, color: "#0b0e11" },
+            textColor: "#94a3b8",
+            fontSize: 11,
+            fontFamily:
+              "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
+          },
+          localization: {
+            locale: "en-US",
+            dateFormat: "dd MMM 'yy",
+          },
+          grid: {
+            vertLines: { color: "#1e293b" },
+            horzLines: { color: "#1e293b" },
+          },
+          crosshair: {
+            vertLine: { color: "#475569", width: 1 },
+            horzLine: { color: "#475569", width: 1 },
+          },
+          rightPriceScale: {
+            borderColor: "#334155",
+            scaleMargins: { top: 0.08, bottom: 0.08 },
+          },
+          timeScale: {
+            borderColor: "#334155",
+            timeVisible: true,
+            secondsVisible: false,
+            barSpacing: 5,
+            minBarSpacing: 2,
+            rightOffset: 10,
+            tickMarkFormatter: (time: Time) => formatTickTime(time),
+          },
+          autoSize: false,
+          width,
+          height,
         });
+
+        const series = chart.addSeries(CandlestickSeries, {
+          upColor: "#22c55e",
+          downColor: "#ef4444",
+          borderVisible: false,
+          wickUpColor: "#16a34a",
+          wickDownColor: "#dc2626",
+        });
+        series.setData(clean);
+        chart.timeScale().fitContent();
+
+        ro = new ResizeObserver(() => {
+          if (!containerRef.current || !chart) return;
+          const w = Math.max(containerRef.current.clientWidth, 280);
+          const h = Math.max(
+            containerRef.current.clientHeight,
+            CHART_HEIGHT_MOBILE_MIN
+          );
+          chart.applyOptions({ width: w, height: h });
+        });
+        ro.observe(el);
+      } catch (err) {
+        console.error("[RealChart] chart init failed", err);
+      }
     };
 
     raf = requestAnimationFrame(() => {
@@ -161,7 +159,7 @@ export function RealChart({ data }: { data: CandlestickData[] }) {
     <div className="w-full">
       <div
         ref={containerRef}
-        className="w-full min-h-[460px] min-w-[280px] overflow-hidden rounded-xl border border-white/10"
+        className="h-[min(32vh,220px)] min-h-[168px] w-full min-w-[280px] overflow-hidden rounded-xl border border-white/10 lg:h-[460px] lg:min-h-[460px]"
       />
     </div>
   );

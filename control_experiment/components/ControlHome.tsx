@@ -15,6 +15,7 @@ import {
 import { getParticipantId } from "@/lib/participantId";
 import { fisherYatesShuffle } from "@/lib/shuffle";
 import type { ControlResponseRow, Prediction } from "@/lib/types";
+import { useI18n } from "../../shared/i18n/provider";
 
 type Step = "intro" | "experiment" | "final";
 
@@ -23,6 +24,7 @@ const DEFAULT_ORDER: number[] = EXPERIMENT_ROUNDS.map((r) => r.id);
 const START_DEBOUNCE_MS = 600;
 
 export function ControlHome() {
+  const { t } = useI18n();
   const [hydrated, setHydrated] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [step, setStep] = useState<Step>("intro");
@@ -162,7 +164,7 @@ export function ControlHome() {
     return (
       <main className="relative z-10 mx-auto flex min-h-screen max-w-7xl items-center justify-center pb-14 pt-8 sm:pt-12">
         <p className="text-sm text-slate-500" role="status">
-          Loading…
+          {t("loading")}
         </p>
       </main>
     );
@@ -180,8 +182,10 @@ export function ControlHome() {
     <main
       className={
         step === "intro"
-          ? "relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col items-center justify-center px-4 py-6 sm:px-8 sm:py-8"
-          : "relative z-10 mx-auto min-h-screen max-w-7xl pb-14 pt-8 sm:pt-12"
+          ? "relative z-10 mx-auto flex min-h-dvh max-h-dvh w-full max-w-7xl flex-col items-center justify-start overflow-x-hidden overflow-y-auto overscroll-y-contain px-3 py-4 sm:items-center sm:justify-center sm:overflow-visible sm:px-8 sm:py-8"
+          : step === "experiment"
+            ? "relative z-10 mx-auto max-h-dvh min-h-0 max-w-7xl overflow-hidden px-0 pt-1 pb-2 lg:min-h-screen lg:max-h-none lg:overflow-visible lg:pb-14 lg:pt-12"
+            : "relative z-10 mx-auto min-h-dvh max-w-7xl px-3 pb-8 pt-4 sm:px-4 sm:pb-14 sm:pt-8 sm:pt-12"
       }
     >
       {step === "intro" && (

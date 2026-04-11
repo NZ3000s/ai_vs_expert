@@ -4,6 +4,7 @@
  * `npm run fetch-historical` once to regenerate from Binance).
  */
 import type { Candle, Prediction } from "@/lib/types";
+import { buildExpert } from "./fixedExpertIdentity";
 import { CHART_BY_ROUND } from "./chartData.generated";
 
 export type ExperimentAsset = "BTCUSDT" | "ETHUSDT" | "SOLUSDT" | "BNBUSDT";
@@ -67,14 +68,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[1]!,
       scenarioLabel: "BTC post-FTX stabilization (daily)",
       outcome: "UP",
-      expert: {
-        name: "Marcus Chen",
-        handle: "mchen_structure",
-        avatar: "https://i.pravatar.cc/100?img=11",
-        bio: "Former desk trader · structure & flows",
-        text: "Daily structure is repairing after the shock: higher lows into resistance without a clean distribution signature. I expect continuation higher through the local range.",
-        prediction: "UP",
-      },
+      expert: buildExpert(
+        "Daily structure is repairing after the shock: higher lows into resistance without a clean distribution signature. I expect continuation higher through the local range.",
+        "UP"
+      ),
       ai: {
         prediction: "DOWN",
         text: "The bounce is narrow and participation is thin; a failed retest here should unwind quickly toward prior support.",
@@ -88,14 +85,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[2]!,
       scenarioLabel: "ETH Q1 2023 (daily)",
       outcome: "UP",
-      expert: {
-        name: "Elena Voss",
-        handle: "evoss_levels",
-        avatar: "https://i.pravatar.cc/100?img=5",
-        bio: "Level-to-level trader · ETH focus",
-        text: "ETH is reclaiming structure—buyers are absorbing dips into the event window. I stay constructive while the last major swing low holds.",
-        prediction: "UP",
-      },
+      expert: buildExpert(
+        "ETH is reclaiming structure—buyers are absorbing dips into the event window. I stay constructive while the last major swing low holds.",
+        "UP"
+      ),
       ai: {
         prediction: "DOWN",
         text: "This advance looks extended; fading momentum favors a mean-reversion lower before the next leg.",
@@ -109,14 +102,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[3]!,
       scenarioLabel: "SOL late 2022–early 2023 (daily)",
       outcome: "DOWN",
-      expert: {
-        name: "Jordan Blake",
-        handle: "blake_onchain",
-        avatar: "https://i.pravatar.cc/100?img=12",
-        bio: "Solana ecosystem · risk-first notes",
-        text: "Liquidity is still fragile on the daily—failed rallies are selling off. I lean lower until breadth and follow-through improve.",
-        prediction: "DOWN",
-      },
+      expert: buildExpert(
+        "Liquidity is still fragile on the daily—failed rallies are selling off. I lean lower until breadth and follow-through improve.",
+        "DOWN"
+      ),
       ai: {
         prediction: "UP",
         text: "Compression after the washout usually resolves with a squeeze; the path of least resistance is up into the next liquidity pocket.",
@@ -130,14 +119,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[4]!,
       scenarioLabel: "BNB spring–summer 2023 (daily)",
       outcome: "DOWN",
-      expert: {
-        name: "Priya Nair",
-        handle: "priya_fx_crypto",
-        avatar: "https://i.pravatar.cc/100?img=9",
-        bio: "Macro + crypto · keep it simple",
-        text: "Headline overhang is showing up in price: lower highs and weak closes. I do not fight the trend until character changes.",
-        prediction: "DOWN",
-      },
+      expert: buildExpert(
+        "Headline overhang is showing up in price: lower highs and weak closes. I do not fight the trend until character changes.",
+        "DOWN"
+      ),
       ai: {
         prediction: "UP",
         text: "Long lower wicks show absorption; a quiet base can still resolve as a higher low before the next leg.",
@@ -151,14 +136,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[5]!,
       scenarioLabel: "BTC Q4 2023–Q1 2024 (daily)",
       outcome: "UP",
-      expert: {
-        name: "Tomás Ortega",
-        handle: "tortega_btc",
-        avatar: "https://i.pravatar.cc/100?img=13",
-        bio: "BTC cycles · position sizing nerd",
-        text: "This leg sits inside a larger weekly uptrend into the halving cycle. Pullbacks look positional, not structural.",
-        prediction: "UP",
-      },
+      expert: buildExpert(
+        "This leg sits inside a larger weekly uptrend into the halving cycle. Pullbacks look positional, not structural.",
+        "UP"
+      ),
       ai: {
         prediction: "DOWN",
         text: "Lower highs on the daily and thinning upside thrust suggest the pullback may still be incomplete.",
@@ -172,14 +153,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[6]!,
       scenarioLabel: "ETH Q2–Q3 2024 (daily)",
       outcome: "UP",
-      expert: {
-        name: "Samira Okonkwo",
-        handle: "samira_mkt",
-        avatar: "https://i.pravatar.cc/100?img=16",
-        bio: "Discretionary TA · journals everything",
-        text: "We are extended into resistance with narrowing breadth—this looks like a classic failed breakout setup. I expect a sharp mean-reversion lower from here.",
-        prediction: "DOWN",
-      },
+      expert: buildExpert(
+        "We are extended into resistance with narrowing breadth—this looks like a classic failed breakout setup. I expect a sharp mean-reversion lower from here.",
+        "DOWN"
+      ),
       ai: {
         prediction: "UP",
         text: "Trend structure is intact: buyers defend dips and each pullback is shallower. Continuation is still the base case.",
@@ -193,14 +170,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[7]!,
       scenarioLabel: "SOL H1 2024 rally window (daily)",
       outcome: "UP",
-      expert: {
-        name: "Chris Weber",
-        handle: "weberwaves",
-        avatar: "https://i.pravatar.cc/100?img=14",
-        bio: "Elliott-ish · keeps counts light",
-        text: "Momentum is rolling over with bearish divergence into the highs—this rally has the hallmarks of a late-stage exhaustion print. I fade strength.",
-        prediction: "DOWN",
-      },
+      expert: buildExpert(
+        "Momentum is rolling over with bearish divergence into the highs—this rally has the hallmarks of a late-stage exhaustion print. I fade strength.",
+        "DOWN"
+      ),
       ai: {
         prediction: "UP",
         text: "Impulsive character off the lows; while the last higher low holds, trend continuation remains the cleaner read.",
@@ -214,14 +187,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[8]!,
       scenarioLabel: "BNB mid-2022 stress (daily)",
       outcome: "DOWN",
-      expert: {
-        name: "Nina Kowalski",
-        handle: "ninak_risk",
-        avatar: "https://i.pravatar.cc/100?img=10",
-        bio: "Risk manager turned trader",
-        text: "Selling is getting disorderly—elongated wicks and volume spikes usually mark a local washout. I look for a relief bounce into congestion.",
-        prediction: "UP",
-      },
+      expert: buildExpert(
+        "Selling is getting disorderly—elongated wicks and volume spikes usually mark a local washout. I look for a relief bounce into congestion.",
+        "UP"
+      ),
       ai: {
         prediction: "DOWN",
         text: "Credit stress feeds through as lower highs; bounces are still selling opportunities until balance returns.",
@@ -235,14 +204,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[9]!,
       scenarioLabel: "ETH merge aftermath (daily)",
       outcome: "UP",
-      expert: {
-        name: "David Frost",
-        handle: "frost_lines",
-        avatar: "https://i.pravatar.cc/100?img=3",
-        bio: "Minimal charts · maximum clarity",
-        text: "Price is churning under the highs with weak upside follow-through—this reads like distribution, not continuation. I expect a break lower.",
-        prediction: "DOWN",
-      },
+      expert: buildExpert(
+        "Price is churning under the highs with weak upside follow-through—this reads like distribution, not continuation. I expect a break lower.",
+        "DOWN"
+      ),
       ai: {
         prediction: "UP",
         text: "Higher lows into resistance with shrinking supply on dips; resolution higher is still the higher-probability path.",
@@ -256,14 +221,10 @@ export const EXPERIMENT_ROUNDS: ExperimentRound[] = (() => {
       chartData: CHART_BY_ROUND[10]!,
       scenarioLabel: "BTC mid-2022 drawdown (daily)",
       outcome: "DOWN",
-      expert: {
-        name: "Amelia Rossi",
-        handle: "arossi_vol",
-        avatar: "https://i.pravatar.cc/100?img=45",
-        bio: "Volatility & BTC · Italian session",
-        text: "Volatility is compressing after the leg down—markets rarely trend in a straight line. I expect a short-covering bounce before any new low.",
-        prediction: "UP",
-      },
+      expert: buildExpert(
+        "Volatility is compressing after the leg down—markets rarely trend in a straight line. I expect a short-covering bounce before any new low.",
+        "UP"
+      ),
       ai: {
         prediction: "DOWN",
         text: "Bearish sequence of lower highs; shallow rallies keep getting sold. The path of least resistance stays down.",

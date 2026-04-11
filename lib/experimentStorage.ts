@@ -6,6 +6,11 @@ export const LS_PROGRESS = "experiment_progress";
 /** `sessionStorage` key: experiment start time (ms) for timer continuity on refresh. */
 export const SESSION_TIMER_START_KEY = "be_experiment_session_timer_start_ms";
 
+/** When true (build-time), same browser can run the experiment again; unset in production. */
+function experimentAllowRepeat(): boolean {
+  return process.env.NEXT_PUBLIC_EXPERIMENT_ALLOW_REPEAT === "true";
+}
+
 export type PersistedProgress = {
   /** Active round index (0-based) into `scenarioOrder`. */
   currentRoundIndex: number;
@@ -15,6 +20,7 @@ export type PersistedProgress = {
 };
 
 export function readCompleted(): boolean {
+  if (experimentAllowRepeat()) return false;
   if (typeof window === "undefined") return false;
   try {
     return localStorage.getItem(LS_COMPLETED) === "true";
@@ -26,7 +32,9 @@ export function readCompleted(): boolean {
 /** Call when all rounds are finished; clears in-progress state. */
 export function setExperimentCompleted(): void {
   try {
-    localStorage.setItem(LS_COMPLETED, "true");
+    if (!experimentAllowRepeat()) {
+      localStorage.setItem(LS_COMPLETED, "true");
+    }
     localStorage.removeItem(LS_PROGRESS);
   } catch {
     /* private mode / quota */

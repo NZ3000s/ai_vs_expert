@@ -1,11 +1,11 @@
 "use client";
 
-import HomeClient from "@/components/HomeClient";
-import { LanguageSelectScreen } from "@shared/i18n/LanguageSelectScreen";
-import { I18nProvider, useI18n } from "@shared/i18n/provider";
-import { messages } from "@shared/i18n/messages";
+import { ControlHome } from "@/components/ControlHome";
+import { LanguageSelectScreen } from "../../shared/i18n/LanguageSelectScreen";
+import { messages } from "../../shared/i18n/messages";
+import { I18nProvider, useI18n } from "../../shared/i18n/provider";
 
-function AppGate() {
+function ControlAppGate() {
   const { ready, locale } = useI18n();
 
   if (!ready) {
@@ -21,18 +21,18 @@ function AppGate() {
   if (!locale) {
     return (
       <main className="relative z-10 mx-auto min-h-dvh w-full max-w-none">
-        <LanguageSelectScreen variant="main" />
+        <LanguageSelectScreen variant="control" />
       </main>
     );
   }
 
-  return <HomeClient />;
+  return <ControlHome />;
 }
 
-export function HomeShell() {
+export function ControlShell() {
   return (
     <I18nProvider>
-      <AppGate />
+      <ControlAppGate />
     </I18nProvider>
   );
 }

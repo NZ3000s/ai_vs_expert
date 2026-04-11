@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlreadyCompletedScreen } from "@/components/AlreadyCompletedScreen";
 import {
   ExperimentScreen,
   type DecisionPayload,
 } from "@/components/ExperimentScreen";
 import { ResultsDashboard } from "@/components/ResultsDashboard";
+import { ExpertModelIntroScreen } from "@/components/ExpertModelIntroScreen";
 import { LandingScreen } from "@/components/LandingScreen";
 import { EXPERIMENT_ROUNDS, TOTAL_ROUNDS } from "@/data/experiments";
 import {
@@ -18,11 +19,15 @@ import {
   type PersistedProgress,
 } from "@/lib/experimentStorage";
 import { fisherYatesShuffle } from "@/lib/shuffle";
-import { submitExperimentWebhook } from "@/lib/experimentWebhook";
-import { getParticipantId } from "@/lib/participantId";
+import {
+  resetWebhookSendStateForNewSession,
+  submitExperimentWebhook,
+} from "@/lib/experimentWebhook";
+import { assignNewParticipantId, getParticipantId } from "@/lib/participantId";
+import { useI18n } from "@shared/i18n/provider";
 import type { RoundRecord } from "@/lib/types";
 
-type Step = "landing" | "experiment" | "final";
+type Step = "landing" | "sourcesIntro" | "experiment" | "final";
 
 type FlowState = {
   step: Step;
@@ -56,6 +61,9 @@ function isValidResume(p: PersistedProgress): boolean {
 }
 
 export default function HomeClient() {
+  const { t } = useI18n();
+  /** Dedupes React effect re-runs for the same completed session payload. */
+  const webhookPayloadKeyRef = useRef<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [scenarioOrder, setScenarioOrder] = useState<number[] | null>(null);
@@ -137,12 +145,31 @@ export default function HomeClient() {
   useEffect(() => {
     if (!hydrated || blocked) return;
     if (flow.step !== "final" || flow.records.length !== TOTAL_ROUNDS) return;
+    const key = flow.records
+      .map(
+        (r) =>
+          `${r.round_number}:${r.answered_at}:${r.followed_source}:${r.response_time_ms}`
+      )
+      .join("|");
+    if (webhookPayloadKeyRef.current === key) return;
+    webhookPayloadKeyRef.current = key;
     submitExperimentWebhook(flow.records);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- submit dedupes; avoid records[] identity churn
-  }, [hydrated, blocked, flow.step, flow.records.length]);
+  }, [hydrated, blocked, flow.step, flow.records]);
 
-  const start = useCallback(() => {
+  const goToSourcesIntro = useCallback(() => {
     if (blocked || readCompleted()) return;
+    setFlow({
+      step: "sourcesIntro",
+      currentRound: 0,
+      records: [],
+    });
+  }, [blocked]);
+
+  const beginRounds = useCallback(() => {
+    if (blocked || readCompleted()) return;
+    resetWebhookSendStateForNewSession();
+    assignNewParticipantId();
+    webhookPayloadKeyRef.current = null;
     const t = Date.now();
     setSessionStartMs(t);
     setSessionEndMs(null);
@@ -226,7 +253,7 @@ export default function HomeClient() {
     return (
       <main className="relative z-10 mx-auto flex min-h-screen max-w-7xl items-center justify-center pb-14 pt-8 sm:pt-12">
         <p className="text-sm text-slate-500" role="status">
-          Loading…
+          {t("loading")}
         </p>
       </main>
     );
@@ -245,10 +272,20 @@ export default function HomeClient() {
       className={
         step === "landing"
           ? "relative z-10 mx-auto flex min-h-dvh w-full max-w-7xl flex-col items-center justify-center px-4 py-6 sm:px-8 sm:py-8"
-          : "relative z-10 mx-auto min-h-screen max-w-7xl pb-14 pt-8 sm:pt-12"
+          : step === "sourcesIntro"
+            ? "relative z-10 mx-auto flex min-h-dvh max-h-dvh w-full max-w-7xl flex-col items-center justify-start overflow-x-hidden overflow-y-auto overscroll-y-contain px-2 pb-2 pt-1 sm:justify-center sm:overflow-visible sm:px-8 sm:py-8"
+          : step === "experiment"
+            ? "relative z-10 mx-auto max-h-dvh min-h-0 max-w-7xl overflow-hidden px-0 pt-1 pb-2 lg:min-h-screen lg:max-h-none lg:overflow-visible lg:px-0 lg:pb-14 lg:pt-12"
+            : "relative z-10 mx-auto min-h-screen max-w-7xl pb-14 pt-8 sm:pt-12"
       }
     >
-      {step === "landing" && <LandingScreen onStart={start} />}
+      {step === "landing" && (
+        <LandingScreen onContinue={goToSourcesIntro} />
+      )}
+
+      {step === "sourcesIntro" && (
+        <ExpertModelIntroScreen onBegin={beginRounds} />
+      )}
 
       {step === "experiment" && round !== undefined && (
         <ExperimentScreen

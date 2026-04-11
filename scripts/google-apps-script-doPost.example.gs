@@ -19,9 +19,14 @@ function doPost(e) {
   }
 
   var data = JSON.parse(e.postData.contents);
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("experiment_results");
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Prefer "responses"; fallback "experiment_results" (older examples); then active sheet.
+  var sheet = ss.getSheetByName("responses");
   if (!sheet) {
-    sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    sheet = ss.getSheetByName("experiment_results");
+  }
+  if (!sheet) {
+    sheet = ss.getActiveSheet();
   }
 
   // Prefer v2: append exactly 12 columns per round, no extra prefix columns.
