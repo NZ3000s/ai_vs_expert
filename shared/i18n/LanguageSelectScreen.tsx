@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_UI_REVISION } from "./constants";
 import { useI18n } from "./provider";
 import { messages } from "./messages";
 
@@ -53,6 +54,13 @@ export function LanguageSelectScreen({ variant }: { variant: Variant }) {
             {messages.ua.languageSelect.ukrainian}
           </button>
         </div>
+
+        <p
+          className="m-0 mt-6 text-center text-[0.625rem] tabular-nums tracking-wide text-slate-600"
+          aria-hidden
+        >
+          {APP_UI_REVISION}
+        </p>
       </div>
     </div>
   );

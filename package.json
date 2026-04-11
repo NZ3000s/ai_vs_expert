@@ -1,6 +1,6 @@
 {
   "name": "behavioral-decision-experiment",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "setup": "npm install --no-fund --no-audit",
